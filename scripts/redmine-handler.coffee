@@ -41,7 +41,7 @@ class RedmineNotifier
     return false if typeof req.body != 'object'
     return req.body
 
-  process: (req, res) ->
+  process: (req, res, robot) ->
     query = querystring.parse(url.parse(req.url).query)
 
     res.end('')
@@ -60,48 +60,35 @@ class RedmineNotifier
         return true
 
     [@dataMethodJSONParse, @dataMethodRaw].forEach(filterChecker)
-    console.log "received push: #{util.inspect(data, { depth: null })}"
+
+    robot.logger.debug "received push: #{util.inspect(data, {depth: null})}"
 
     payload = data.payload
-    action = payload.action
     issue = payload.issue
-    assignee = unless issue.assignee? then "" else issue.assignee.login
-    issueId = issue.id
+    if payload.journal?
+      updater = payload.journal.author
+    else
+      updater = issue.author
 
-    #project = issue.project.name
-    #author = issue.author.login
-    #tracker = issue.tracker.name
-    #issueSubject = issue.subject
-    #status = issue.status.name
-    #priority = issue.priority.name
-    #issueUrl = payload.url
-    #message = """
-    #          [#{project}] #{author} #{action} #{tracker}##{issueId}
-    #          Subject: #{issueSubject}
-    #          Status: #{status}
-    #          Priority: #{priority}
-    #          Assignee: #{assignee}
-    #          URL: #{issueUrl}
-    #          """
-
-    switch action
-      when 'opened'
+    switch payload.action
+      when 'opened', 'updated'
         return {
-          type: action,
-          assignee: assignee,
-          issueId: issueId
-        }
-      when 'updated'
-        return {
-          type: action,
-          assignee: assignee,
-          issueId: issueId
+          type: 'redmine-notif'
+          action: payload.action
+          assignee: unless issue.assignee? then "" else issue.assignee.login
+          updater: updater
+          issueId: issue.id
+          subject: issue.subject
+          status: issue.status.name
+          tracker: issue.tracker.name
+          priority: issue.priority.name
+          project: issue.project.name
+          url: payload.url
         }
       else return undefined
 
 module.exports = (robot) ->
   robot.redmine_notifier = new RedmineNotifier
-
   robot.router.post "/hubot/redmine-notify", (req, res) ->
-    details = robot.redmine_notifier.process req, res
+    details = robot.redmine_notifier.process req, res, robot
     robot.emit details.type, details
