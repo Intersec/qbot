@@ -39,5 +39,6 @@ module.exports = (robot) ->
     text = "#{details.updater.firstname} #{details.updater.lastname} has " +
            "#{details.action} ##{details.issueId}"
 
-    # For the moment, only push it in a test channel
-    robot.adapter.client.web.chat.postMessage('C8465AZFC', text, msg)
+    # Send notification to assignee
+    if details.assignee != ""
+      robot.emit 'user-send', details.assignee, 'redmine', text, msg

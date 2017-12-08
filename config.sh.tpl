@@ -6,6 +6,10 @@
 
 export HUBOT_SLACK_TOKEN=
 
+# Redis URL for data saving/reloading
+
+export REDIS_URL=
+
 #
 # Optional:
 #
