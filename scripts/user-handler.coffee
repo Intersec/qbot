@@ -4,6 +4,19 @@
 
 get_user_subs_key = (nickname) -> "#{nickname}.subscriptions"
 
+
+is_prod_ready = ->
+  env = process.env.QBOT_PROD_READY
+  return env? and env == '1'
+
+
+fix_channel = (channel, text) ->
+  if is_prod_ready()
+    return [channel, text]
+  else
+    return ['#qbot-dev', "notification to #{channel}: #{text}"]
+
+
 module.exports = (robot) ->
 
   # Handle notifications
@@ -11,17 +24,15 @@ module.exports = (robot) ->
     # Check the user has signed up for this type of notifications
     subs = robot.brain.get(get_user_subs_key(nickname))
     if not subs? or type not in subs
-      robot.messageRoom(
-        '#qbot-dev',
-        "unsubscribed notif of type `#{type}` sent to @#{nickname}"
-      )
+      if not is_prod_ready()
+        robot.messageRoom(
+          '#qbot-dev',
+          "unsubscribed #{type} notif for @#{nickname}"
+        )
 
     # send msg to user
-    robot.adapter.client.web.chat.postMessage(
-      '#qbot-dev',
-      "notif of type #{type} to @#{nickname}: #{text}",
-      msg
-    )
+    [chan, text] = fix_channel "@#{nickname}", text
+    robot.adapter.client.web.chat.postMessage(chan, text, msg)
 
 
   # List subscriptions for the user
