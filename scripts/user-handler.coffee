@@ -35,37 +35,49 @@ module.exports = (robot) ->
     robot.adapter.client.web.chat.postMessage(chan, text, msg)
 
 
-  # List subscriptions for the user
-  robot.respond /subscriptions get/i, (res) ->
+  # Redmine status
+  robot.respond /redmine$/, (res) ->
     nickname = res.envelope.user.name
     subs = robot.brain.get(get_user_subs_key(nickname))
-    if subs?
-      subs_joined = subs.join(', ')
-      res.send "you are subscribed to notifications of type #{subs_joined}"
+    if 'redmine' in subs
+      msg  = "You are already subscribed to redmine notifications. "
+      msg += "What more could you want :upside_down_face:?\n"
+      msg += "To unsubscribe, use the `redmine unsubscribe` command"
     else
-      res.send "you are not subscribed to any notifications"
+      msg  = "You are not subscribed to redmine notifications. "
+      msg += "You're missing out! :sunglasses:\n"
+      msg += "To subscribe, use the `redmine subscribe` command"
 
+    res.send msg
 
-  # Subscribe to a notification
-  robot.respond /subscribe (.*)/i, (res) ->
-      type = res.match[1]
-
-      # TODO: generalize this list
-      if type != 'redmine'
-        res.send "unknown notification type `#{type}`"
-        return
+  # Redmine sub/unsub
+  robot.respond /redmine (.*)/i, (res) ->
+      cmd = res.match[1]
 
       nickname = res.envelope.user.name
-      key = get_users_subs_key(nickname)
+      key = get_user_subs_key(nickname)
       subs = robot.brain.get(key)
-      if subs?
+      if not subs?
+        subs = []
+
+      type = 'redmine'
+
+      if cmd == 'unsubscribe'
+        index = subs.indexOf(type)
+        if index == -1
+          res.send "You are not subscribed to #{type} notifications."
+          return
+        subs.splice(index, 1)
+        res.send "You are no longer subscribed to #{type} notifications."
+      else if cmd == 'subscribe'
         if type in subs
-          res.send "you are already subscribed to #{type} notifications"
+          res.send "You are already subscribed to #{type} notifications."
           return
         subs.push type
+        res.send "You will now receive #{type} notifications."
       else
-        subs = [type]
+        res.send "Unknown #{cmd} command."
+        return
 
       robot.brain.set(key, subs)
-      res.send "you will now receive #{type} notifications"
 
