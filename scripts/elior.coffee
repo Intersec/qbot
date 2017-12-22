@@ -1,7 +1,8 @@
 'use strict'
+HubotCron = require 'hubot-cronjob'
 
 module.exports = (robot) ->
-  getMenu = (chat, day) ->
+  getMenu = (day, cb) ->
     formatMenu = (dayMenu) ->
       formatDay = () -> dayMenu.date.replace 'T00:00:00Z', ''
 
@@ -18,15 +19,22 @@ module.exports = (robot) ->
         else
           data = JSON.parse body
           if day < 0
-            chat.reply (data.map (dayMenu) -> formatMenu dayMenu).join '\n'
+            cb (data.map (dayMenu) -> formatMenu dayMenu).join '\n'
           else if day < 5
-            chat.reply formatMenu data[day]
+            cb formatMenu data[day]
 
   robot.respond /menu$/, (chat) ->
-    getMenu chat, 0
+    getMenu 0, (msg) -> chat.reply msg
   robot.respond /menu du jour$/, (chat) ->
-    getMenu chat, 0
+    getMenu 0, (msg) -> chat.reply msg
   robot.respond /menu de demain$/, (chat) ->
-    getMenu chat, 1
+    getMenu 1, (msg) -> chat.reply msg
   robot.respond /menu de la semaine$/, (chat) ->
-    getMenu chat, -1
+    getMenu -1, (msg) -> chat.reply msg
+
+  # each work day @ 11:50, the day's menu
+  new HubotCron '50 11 * * 1-5', 'Europe/Paris', () ->
+    getMenu 0, (msg) -> robot.messageRoom 'qbot-dev', msg
+  # each monday @ 10, the week's menu
+  new HubotCron '0 10 * * 1', 'Europe/Paris', () ->
+    getMenu -1, (msg) -> robot.messageRoom 'qbot-dev', msg
