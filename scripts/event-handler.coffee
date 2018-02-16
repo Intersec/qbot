@@ -17,7 +17,7 @@ module.exports = (robot) ->
         {
           title: "Ticket ##{details.issueId}: #{details.subject}"
           title_link: details.url
-          text: details.description
+          text: details.notes || details.description
           fallback: ""
           fields: [
             {

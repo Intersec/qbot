@@ -87,6 +87,7 @@ class RedmineNotifier
           project: issue.project.name
           url: payload.url
           watchers: issue.watchers
+          notes: if payload.journal? then payload.journal.notes else undefined
         }
       else return undefined
 
