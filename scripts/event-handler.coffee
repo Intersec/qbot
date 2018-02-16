@@ -60,21 +60,20 @@ module.exports = (robot) ->
     text = "#{details.updater.firstname} #{details.updater.lastname} has " +
            "updated ##{details.issueId}"
 
-    # hash of notified users, to avoid notifying the same person twice
     notified = {}
+    # notify user if not updater and not already notified
+    notify_user = (login) ->
+      if login != details.updater.login and login not of notified
+        robot.emit 'user-send', login, 'redmine', text, msg
+        notified[login] = true
 
     # Send notification to assignee
-    if details.assignee and details.updater.login != details.assignee.login
-      robot.emit 'user-send', details.assignee.login, 'redmine', text, msg
-      notified[details.assignee.login] = true
+    if details.assignee
+      notify_user details.assignee.login
 
     # Send notification to author
-    if details.author.login not of notified
-      robot.emit 'user-send', details.author.login, 'redmine', text, msg
-      notified[details.author.login] = true
+    notify_user details.author.login
 
     # Send notification to watchers
     for idx,w of details.watchers
-      if w.login not of notified
-        robot.emit 'user-send', w.login, 'redmine', text, msg
-        notified[w.login] = true
+      notify_user w.login
