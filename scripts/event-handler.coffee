@@ -2,6 +2,12 @@
 
 util = require('util')
 
+get_color_from_tracker = (tracker) ->
+  switch tracker
+    when 'Bug' then 'danger'
+    when 'Feature', 'Main' then 'good'
+    else '#6878cc'
+
 module.exports = (robot) ->
   # Handle redmine notifications
   robot.on 'redmine-notif', (details) ->
@@ -35,7 +41,7 @@ module.exports = (robot) ->
                short: true
             }
           ]
-          color: "#6878cc"
+          color: get_color_from_tracker details.tracker
         }
       ]
       as_user: true
