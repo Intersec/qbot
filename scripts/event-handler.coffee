@@ -11,13 +11,21 @@ get_color_from_tracker = (tracker) ->
 module.exports = (robot) ->
   # Handle redmine notifications
   robot.on 'redmine-notif', (details) ->
+
+    # Use description of the ticket if just opened,
+    # update notes if updated
+    if details.action == 'opened'
+      content = details.description
+    else
+      content = details.notes
+
     # Build a pretty message for the related ticket
     msg = {
       attachments: [
         {
           title: "#{details.tracker} ##{details.issueId}: #{details.subject}"
           title_link: details.url
-          text: details.notes || details.description
+          text: content
           fallback: ""
           fields: [
             {
