@@ -75,15 +75,18 @@ class RedmineNotifier
         return {
           type: 'redmine-notif'
           action: payload.action
-          assignee: unless issue.assignee? then "" else issue.assignee.login
+          assignee: issue.assignee
+          author: issue.author
           updater: updater
           issueId: issue.id
           subject: issue.subject
+          description: issue.description
           status: issue.status.name
           tracker: issue.tracker.name
           priority: issue.priority.name
           project: issue.project.name
           url: payload.url
+          watchers: issue.watchers
         }
       else return undefined
 
