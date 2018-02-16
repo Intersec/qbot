@@ -39,7 +39,7 @@ module.exports = (robot) ->
   robot.respond /redmine$/, (res) ->
     nickname = res.envelope.user.name
     subs = robot.brain.get(get_user_subs_key(nickname))
-    if 'redmine' in subs
+    if subs? and 'redmine' in subs
       msg  = "You are already subscribed to redmine notifications. "
       msg += "What more could you want :upside_down_face:?\n"
       msg += "To unsubscribe, use the `redmine unsubscribe` command"
