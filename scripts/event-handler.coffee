@@ -15,28 +15,23 @@ module.exports = (robot) ->
     msg = {
       attachments: [
         {
-          title: "Ticket ##{details.issueId}: #{details.subject}"
+          title: "#{details.tracker} ##{details.issueId}: #{details.subject}"
           title_link: details.url
           text: details.notes || details.description
           fallback: ""
           fields: [
             {
-               title: "Status",
+               title: "Status"
                value: details.status
                short: true
             },
             {
-               title: "Tracker",
-               value: details.tracker
-               short: true
-            },
-            {
-               title: "Priority",
+               title: "Priority"
                value: details.priority
                short: true
             },
             {
-               title: "Project",
+               title: "Project"
                value: details.project
                short: true
             }
@@ -48,7 +43,7 @@ module.exports = (robot) ->
     }
 
     if details.assignee
-      msg.attachments[0].fields.push({
+      msg.attachments[0].fields.unshift({
         title: "Assignee"
         value: "#{details.assignee.firstname} #{details.assignee.lastname}"
         short: true
