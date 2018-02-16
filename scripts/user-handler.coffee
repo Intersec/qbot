@@ -21,17 +21,17 @@ module.exports = (robot) ->
 
   # Handle notifications
   robot.on 'user-send', (nickname, type, text, msg) ->
+    [chan, text] = fix_channel "@#{nickname}", text
+
     # Check the user has signed up for this type of notifications
     subs = robot.brain.get(get_user_subs_key(nickname))
     if not subs? or type not in subs
-      if not is_prod_ready()
-        robot.messageRoom(
-          '#qbot-dev',
-          "unsubscribed #{type} notif for @#{nickname}"
-        )
+      if is_prod_ready()
+        robot.logger.debug "unsubscribed #{type} notif for @#{nickname}"
+        return
+      text = "unsubscribed #{type} " + text
 
     # send msg to user
-    [chan, text] = fix_channel "@#{nickname}", text
     robot.adapter.client.web.chat.postMessage(chan, text, msg)
 
 
