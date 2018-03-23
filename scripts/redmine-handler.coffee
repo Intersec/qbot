@@ -15,53 +15,15 @@
 
 'use strict'
 
-url = require('url')
-querystring = require('querystring')
-util = require('util')
+notifier = require('./notif-handler.coffee')
 
-class RedmineNotifier
-  error: (err, body) ->
-    console.log "redmine-notify error: #{err.message}. Data: #{util.inspect(body)}"
-    console.log err.stack
-
-  dataMethodJSONParse: (req, data) ->
-    return false if typeof req.body != 'object'
-    ret = Object.keys(req.body).filter (val) ->
-      val != '__proto__'
-
-    try
-      if ret.length == 1
-        return JSON.parse ret[0]
-    catch err
-      return false
-
-    return false
-
-  dataMethodRaw: (req) ->
-    return false if typeof req.body != 'object'
-    return req.body
+class RedmineNotifier extends notifier.NotifHandler
+  constructor: ->
+    super("redmine-notify")
 
   process: (req, res, robot) ->
-    query = querystring.parse(url.parse(req.url).query)
-
     res.end('')
-
-    envelope = {}
-    envelope.user = {}
-
-    data = null
-
-    filterChecker = (item, callback) ->
-      return if data
-
-      ret = item(req)
-      if (ret)
-        data = ret
-        return true
-
-    [@dataMethodJSONParse, @dataMethodRaw].forEach(filterChecker)
-
-    robot.logger.debug "received push: #{util.inspect(data, {depth: null})}"
+    data = @dataFetch(req, robot)
 
     payload = data.payload
     issue = payload.issue

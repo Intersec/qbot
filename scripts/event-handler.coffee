@@ -8,6 +8,19 @@ get_color_from_tracker = (tracker) ->
     when 'Feature', 'Main' then 'good'
     else '#6878cc'
 
+get_color_from_comment = (comment) ->
+  if /Verified-1/.test(comment)
+    return '#323232'
+  else if /Verified\+1/.test(comment)
+    return '#439fe0'
+  else if /Code-Review-2/.test(comment)
+    return 'danger'
+  else if /Code-Review-1/.test(comment)
+    return 'warning'
+  else if /Code-Review\+1/.test(comment)
+    return 'good'
+  return '#8a2be2'
+
 module.exports = (robot) ->
   # Handle redmine notifications
   robot.on 'redmine-notif', (details) ->
@@ -77,3 +90,32 @@ module.exports = (robot) ->
     # Send notification to watchers
     for idx,w of details.watchers
       notify_user w.login
+
+  robot.on 'gerrit-notif', (details) ->
+    # Do not send message if author is owner
+    if details.author == details.change_owner
+      return
+
+    # Build a pretty message for the related gerrit notif
+    msg = {
+      attachments: [
+        {
+          title: details.subject
+          title_link: details.change_url
+          text: details.comment
+          color: get_color_from_comment details.comment
+        }
+      ]
+      as_user: true
+    }
+
+    notify_user_gerrit = (login) ->
+      if details.emitter
+        text = details.author.replace /<.*>/, "@#{details.emitter}"
+      else
+        text = details.author
+
+      robot.emit 'user-send', login, 'gerrit', text, msg
+
+    # Send notification to owner of patch
+    notify_user_gerrit details.nickname
