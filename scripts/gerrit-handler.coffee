@@ -10,7 +10,10 @@ class GerritNotifier extends notifier.NotifHandler
     super("gerrit-notify")
 
   @getUserLogin: (user, finished) ->
-    mail = user.split(/\<|\>/)[1]
+    split = user.split(/\<|\>/)
+    if split.length < 2
+      split = user.split(/\(|\)/)
+    mail = split[1]
     exec 'ldapsearch -x -b dc=intersec,dc=com \'mail='+mail+'\' | grep \'uid:\' | sed \'s/uid: //\'', (err, stdout, stderr) ->
       if err
         robot.logger.debug err
