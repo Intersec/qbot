@@ -1,3 +1,13 @@
+# Description:
+#   Handle user subscriptions to various notifications
+#
+# Commands:
+#   qbot redmine - Modify subscription to redmine notifications
+#   qbot gerrit - Modify subscription to gerrit notifications
+#
+# Author:
+#   vthib, yannKagan
+
 'use strict'
 
 # For the moment, only push msgs in a test channel

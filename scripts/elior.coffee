@@ -1,3 +1,12 @@
+# Description:
+#   Interface with the elior restaurant API
+#
+# Commands:
+#   qbot menu - Reply with the menu for the current day
+#
+# Author:
+#   Youx
+
 'use strict'
 
 fixCase = (str) -> str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()

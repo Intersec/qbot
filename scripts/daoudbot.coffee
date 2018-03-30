@@ -1,3 +1,12 @@
+# Description:
+#   Reply like daoud on a dubious sentence
+#
+# Commands:
+#   daoud bot - Reply like daoud after a dubious sentence
+#
+# Author:
+#   alineIntersec
+
 'use strict'
 randomInt = (lower, upper) ->
   Math.floor(Math.random() * (upper - lower + 1) + lower)
