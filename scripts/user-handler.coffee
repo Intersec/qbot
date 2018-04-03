@@ -10,9 +10,9 @@
 
 'use strict'
 
-# For the moment, only push msgs in a test channel
-
-get_user_subs_key = (nickname) -> "#{nickname}.subscriptions"
+# Match a user to the key holding the list of subscriptions to
+# disable
+get_user_nosubs_key = (nickname) -> "#{nickname}.nosubscriptions"
 
 
 is_prod_ready = ->
@@ -28,42 +28,43 @@ fix_channel = (channel, text) ->
 
 on_status = (type, robot, res) ->
     nickname = res.envelope.user.name
-    subs = robot.brain.get(get_user_subs_key(nickname))
-    if subs? and type in subs
-      msg  = "You are already subscribed to #{type} notifications. "
-      msg += "What more could you want :upside_down_face:?\n"
-      msg += "To unsubscribe, use the `#{type} unsubscribe` command"
-    else
+    nosubs = robot.brain.get(get_user_nosubs_key(nickname))
+    if nosubs? and type in nosubs
       msg  = "You are not subscribed to #{type} notifications. "
       msg += "You're missing out! :sunglasses:\n"
       msg += "To subscribe, use the `#{type} subscribe` command"
+    else
+      msg  = "You are already subscribed to #{type} notifications. "
+      msg += "What more could you want :upside_down_face:?\n"
+      msg += "To unsubscribe, use the `#{type} unsubscribe` command"
 
     res.send msg
 
-on_action = (cmd, nickname, type, robot, res) ->
-  key = get_user_subs_key(nickname)
-  subs = robot.brain.get(key)
-  if not subs?
-    subs = []
 
-  if cmd == 'unsubscribe'
-    index = subs.indexOf(type)
+on_action = (cmd, nickname, type, robot, res) ->
+  key = get_user_nosubs_key(nickname)
+  nosubs = robot.brain.get(key)
+  if not nosubs?
+    nosubs = []
+
+  if cmd == 'subscribe'
+    index = nosubs.indexOf(type)
     if index == -1
-      res.send "You are not subscribed to #{type} notifications."
-      return
-    subs.splice(index, 1)
-    res.send "You are no longer subscribed to #{type} notifications."
-  else if cmd == 'subscribe'
-    if type in subs
       res.send "You are already subscribed to #{type} notifications."
       return
-    subs.push type
+    nosubs.splice(index, 1)
     res.send "You will now receive #{type} notifications."
+  else if cmd == 'unsubscribe'
+    if type in nosubs
+      res.send "You are not subscribed to #{type} notifications."
+      return
+    nosubs.push type
+    res.send "You are no longer subscribed to #{type} notifications."
   else
     res.send "Unknown #{cmd} command."
     return
 
-  robot.brain.set(key, subs)
+  robot.brain.set(key, nosubs)
 
 
 module.exports = (robot) ->
@@ -73,8 +74,8 @@ module.exports = (robot) ->
     [chan, text] = fix_channel "@#{nickname}", text
 
     # Check the user has signed up for this type of notifications
-    subs = robot.brain.get(get_user_subs_key(nickname))
-    if not subs? or type not in subs
+    nosubs = robot.brain.get(get_user_nosubs_key(nickname))
+    if nosubs? and type in nosubs
       if is_prod_ready()
         robot.logger.debug "unsubscribed #{type} notif for @#{nickname}"
         return
