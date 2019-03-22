@@ -9,6 +9,9 @@
 
 'use strict'
 
+Entities = require('html-entities').XmlEntities
+entities = new Entities()
+
 module.exports = (robot) ->
   robot.respond /weekend/, (chat) ->
     robot.http("https://estcequecestbientotleweekend.fr")
@@ -18,6 +21,4 @@ module.exports = (robot) ->
           return
         pattern = /<p class="msg">\s*(.*)\s*<\/p>/
         text = body.match(pattern)[1]
-        chat.reply text
-
-
+        chat.reply entities.decode(text)
