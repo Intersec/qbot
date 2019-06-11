@@ -22,8 +22,8 @@ get_color_from_comment = (comment) ->
   return '#8a2be2'
 
 replace_html = (html) ->
-  html = sentence.replace /<\/?strong>/g, "*"
-  html = sentence.replace /<\/?i>/g, "`"
+  html = html.replace /<\/?strong>/g, "*"
+  html = html.replace /<\/?i>/g, "`"
   return html
 
 module.exports = (robot) ->
@@ -35,7 +35,8 @@ module.exports = (robot) ->
     if details.action == 'opened'
       content = details.description
     else if details.journal_html?
-      content = replace_html details.journal_html
+      replaced = details.journal_html.map replace_html
+      content = replaced.join '\n'
     else
       content = details.notes
 

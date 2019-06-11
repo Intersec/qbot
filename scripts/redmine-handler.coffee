@@ -50,6 +50,7 @@ class RedmineNotifier extends notifier.NotifHandler
           url: payload.url
           watchers: issue.watchers
           notes: if payload.journal? then payload.journal.notes else undefined
+          journal_html: payload.journal_html
         }
       else return undefined
 
