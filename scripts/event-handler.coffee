@@ -21,6 +21,11 @@ get_color_from_comment = (comment) ->
     return 'good'
   return '#8a2be2'
 
+replace_html = (html) ->
+  html = sentence.replace /<\/?strong>/g, "*"
+  html = sentence.replace /<\/?i>/g, "`"
+  return html
+
 module.exports = (robot) ->
   # Handle redmine notifications
   robot.on 'redmine-notif', (details) ->
@@ -29,6 +34,8 @@ module.exports = (robot) ->
     # update notes if updated
     if details.action == 'opened'
       content = details.description
+    else if details.journal_html?
+      content = replace_html details.journal_html
     else
       content = details.notes
 
