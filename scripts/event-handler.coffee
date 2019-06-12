@@ -35,7 +35,7 @@ module.exports = (robot) ->
     # update notes if updated
     if details.action == 'opened'
       content = details.description
-    else if details.journal_html?
+    else if details.journal_html? and details.journal_html.length > 0
       replaced = details.journal_html.map replace_html
       content = replaced.join '\n'
     else
