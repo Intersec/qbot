@@ -24,6 +24,7 @@ get_color_from_comment = (comment) ->
 replace_html = (html) ->
   html = html.replace /<\/?strong>/g, "*"
   html = html.replace /<\/?i>/g, "`"
+  html = html.replace /<\/?a[^>]*>/g, ""
   return html
 
 module.exports = (robot) ->
