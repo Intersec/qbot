@@ -101,10 +101,6 @@ module.exports = (robot) ->
       notify_user w.login
 
   robot.on 'gerrit-notif', (details) ->
-    # Do not send message if author is owner
-    if details.author == details.change_owner
-      return
-
     # Build a pretty message for the related gerrit notif
     msg = {
       attachments: [
@@ -127,4 +123,9 @@ module.exports = (robot) ->
       robot.emit 'user-send', login, 'gerrit', text, msg
 
     # Send notification to owner of patch
-    notify_user_gerrit details.nickname
+    if details.author != details.change_owner
+      notify_user_gerrit details.nickname
+    if details.reviewers?
+        for user in details.reviewers
+            if user != details.emitter && user != details.nickname
+                notify_user_gerrit user
