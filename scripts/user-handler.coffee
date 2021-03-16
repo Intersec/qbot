@@ -61,8 +61,31 @@ on_action = (cmd, nickname, type, robot, res) ->
     nosubs.push type
     res.send "You are no longer subscribed to #{type} notifications."
   else
-    res.send "Unknown #{cmd} command."
-    return
+    ext_cmd = cmd.split(" ")
+    # Commands to link or unlink Redmine projects and Slack channels
+    # XXX: A Redmine project needs a hook for this to work
+    if ext_cmd[0] == 'link_project' or ext_cmd[0] == 'unlink_project'
+      if ext_cmd.length != 3
+        res.send "2 arguments required redmine_project_id slack_channel"
+        return
+      slack_chans = robot.brain.get(ext_cmd[1])
+      if not slack_chans?
+          slack_chans = []
+      if ext_cmd[0] == 'link_project'
+        if ext_cmd[2] in slack_chans
+          res.send "Link between #{ext_cmd[1]} and #{ext_cmd[2]} is already done"
+          return
+        slack_chans.push ext_cmd[2]
+      else
+        index = slack_chans.indexOf(ext_cmd[2])
+        if index == -1
+          res.send "No link between #{ext_cmd[1]} and #{ext_cmd[2]}"
+          return
+        slack_chans.splice(index, 1)
+      robot.brain.set(ext_cmd[1], slack_chans)
+    else
+      res.send "Unknown #{cmd} command."
+      return
 
   robot.brain.set(key, nosubs)
 
@@ -84,6 +107,12 @@ module.exports = (robot) ->
     # send msg to user
     robot.adapter.client.web.chat.postMessage(chan, text, msg)
 
+  robot.on 'channel-send', (project, text, msg) ->
+    slack_chans = robot.brain.get(project)
+    if slack_chans?
+      for idx,slack_chan of slack_chans
+        [chan, text] = fix_channel slack_chan, text
+        robot.adapter.client.web.chat.postMessage(chan, text, msg)
 
   # Redmine status
   robot.respond /redmine$/, (res) ->

@@ -100,6 +100,9 @@ module.exports = (robot) ->
     for idx,w of details.watchers
       notify_user w.login
 
+    if details.action == 'opened' or content.indexOf('to `New') >= 0
+      robot.emit 'channel-send', details.project_id, text, msg
+
   robot.on 'gerrit-notif', (details) ->
     # Build a pretty message for the related gerrit notif
     msg = {
