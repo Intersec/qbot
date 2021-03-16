@@ -47,6 +47,7 @@ class RedmineNotifier extends notifier.NotifHandler
           tracker: issue.tracker.name
           priority: issue.priority.name
           project: issue.project.name
+          project_id: issue.project.identifier
           url: payload.url
           watchers: issue.watchers
           notes: if payload.journal? then payload.journal.notes else undefined
