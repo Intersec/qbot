@@ -10,6 +10,10 @@
 
 'use strict'
 
+fs = require('fs')
+
+matrix = require('hubot-matrix/matrix-client.coffee')
+
 # Match a user to the key holding the list of subscriptions to
 # disable
 get_user_nosubs_key = (nickname) -> "#{nickname}.nosubscriptions"
@@ -17,6 +21,18 @@ get_user_nosubs_key = (nickname) -> "#{nickname}.nosubscriptions"
 
 is_prod_ready = ->
   env = process.env.QBOT_PROD_READY
+  return env? and env == '1'
+
+# Matrix has its own production switch so it can be tested while
+# slack notifications keep running in production
+is_matrix_prod_ready = ->
+  env = process.env.QBOT_MATRIX_PROD_READY
+  return env? and env == '1'
+
+# Slack notifications can be turned off (once matrix has taken over);
+# the bot stays connected to slack to answer commands
+is_slack_disabled = ->
+  env = process.env.QBOT_SLACK_DISABLED
   return env? and env == '1'
 
 
@@ -61,58 +77,89 @@ on_action = (cmd, nickname, type, robot, res) ->
     nosubs.push type
     res.send "You are no longer subscribed to #{type} notifications."
   else
-    ext_cmd = cmd.split(" ")
-    # Commands to link or unlink Redmine projects and Slack channels
-    # XXX: A Redmine project needs a hook for this to work
-    if ext_cmd[0] == 'link_project' or ext_cmd[0] == 'unlink_project'
-      if ext_cmd.length != 3
-        res.send "2 arguments required redmine_project_id slack_channel"
-        return
-      slack_chans = robot.brain.get(ext_cmd[1])
-      if not slack_chans?
-          slack_chans = []
-      if ext_cmd[0] == 'link_project'
-        if ext_cmd[2] in slack_chans
-          res.send "Link between #{ext_cmd[1]} and #{ext_cmd[2]} is already done"
-          return
-        slack_chans.push ext_cmd[2]
-      else
-        index = slack_chans.indexOf(ext_cmd[2])
-        if index == -1
-          res.send "No link between #{ext_cmd[1]} and #{ext_cmd[2]}"
-          return
-        slack_chans.splice(index, 1)
-      robot.brain.set(ext_cmd[1], slack_chans)
-    else
-      res.send "Unknown #{cmd} command."
-      return
+    res.send "Unknown #{cmd} command."
+    return
 
   robot.brain.set(key, nosubs)
 
 
+# Get the channels linked to a Redmine project from the project links
+# JSON file (./project-links.json, or QBOT_PROJECT_LINKS if set):
+#   { "<redmine_project_id>": ["#slack-chan", "#room:matrix.example.com"] }
+# The file is re-read on each notification so it can be modified
+# without restarting the bot.
+get_project_channels = (robot, project) ->
+  path = process.env.QBOT_PROJECT_LINKS
+  if not path? or path.length == 0
+    path = 'project-links.json'
+  try
+    links = JSON.parse fs.readFileSync(path, 'utf8')
+  catch err
+    if err.code == 'ENOENT'
+      robot.logger.debug "no project links file (#{path})"
+    else
+      robot.logger.error "cannot read project links file #{path}: #{err}"
+    return []
+  links[project] ? []
+
+
 module.exports = (robot) ->
 
-  # Handle notifications
-  robot.on 'user-send', (nickname, type, text, msg) ->
+  matrix_client = new matrix.MatrixClient(robot)
+  matrix_dev_room = process.env.QBOT_MATRIX_DEV_ROOM
+
+  # Handle notifications.
+  # user is an object with at least a login, and a mail when the
+  # notification source provides it (needed for matrix DMs).
+  robot.on 'user-send', (user, type, text, msg) ->
+    nickname = user.login
+    orig_text = text
     [chan, text] = fix_channel "@#{nickname}", text
 
-    # Check the user has signed up for this type of notifications
-    nosubs = robot.brain.get(get_user_nosubs_key(nickname))
-    if nosubs? and type in nosubs
+    # Check the user has signed up for this type of notifications.
+    # Subscriptions are keyed by the name the user has on the network
+    # the command came from: login on slack, email local part on matrix.
+    names = [nickname]
+    if user.mail? and user.mail.indexOf('@') > 0
+      names.push user.mail.split('@')[0].toLowerCase()
+    unsubscribed = names.some (name) ->
+      nosubs = robot.brain.get(get_user_nosubs_key(name))
+      nosubs? and type in nosubs
+    if unsubscribed
       if is_prod_ready()
         robot.logger.debug "unsubscribed #{type} notif for @#{nickname}"
         return
       text = "unsubscribed #{type} " + text
 
     # send msg to user
-    robot.adapter.client.web.chat.postMessage(chan, text, msg)
+    if not is_slack_disabled() and robot.adapter.client?.web?
+      robot.adapter.client.web.chat.postMessage(chan, text, msg)
+
+    # mirror the notification on matrix
+    if matrix_client.enabled()
+      if is_matrix_prod_ready()
+        [plain, html] = matrix.format_notif orig_text, msg
+        matrix_client.sendDM user.mail, plain, html
+      else if matrix_dev_room
+        [plain, html] = matrix.format_notif(
+          "DM to @#{nickname}: #{orig_text}", msg)
+        matrix_client.send matrix_dev_room, plain, html
 
   robot.on 'channel-send', (project, text, msg) ->
-    slack_chans = robot.brain.get(project)
-    if slack_chans?
-      for idx,slack_chan of slack_chans
-        [chan, text] = fix_channel slack_chan, text
-        robot.adapter.client.web.chat.postMessage(chan, text, msg)
+    chans = get_project_channels robot, project
+    for idx,linked_chan of chans
+      if matrix.is_matrix_room linked_chan
+        continue if not matrix_client.enabled()
+        if is_matrix_prod_ready()
+          [plain, html] = matrix.format_notif text, msg
+          matrix_client.send linked_chan, plain, html
+        else if matrix_dev_room
+          [plain, html] = matrix.format_notif(
+            "notification to #{linked_chan}: #{text}", msg)
+          matrix_client.send matrix_dev_room, plain, html
+      else if not is_slack_disabled() and robot.adapter.client?.web?
+        [chan, chan_text] = fix_channel linked_chan, text
+        robot.adapter.client.web.chat.postMessage(chan, chan_text, msg)
 
   # Redmine status
   robot.respond /redmine$/, (res) ->

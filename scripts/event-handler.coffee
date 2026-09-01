@@ -84,21 +84,21 @@ module.exports = (robot) ->
 
     notified = {}
     # notify user if not updater and not already notified
-    notify_user = (login) ->
-      if login != details.updater.login and login not of notified
-        robot.emit 'user-send', login, 'redmine', text, msg
-        notified[login] = true
+    notify_user = (user) ->
+      if user.login != details.updater.login and user.login not of notified
+        robot.emit 'user-send', user, 'redmine', text, msg
+        notified[user.login] = true
 
     # Send notification to assignee
     if details.assignee
-      notify_user details.assignee.login
+      notify_user details.assignee
 
     # Send notification to author
-    notify_user details.author.login
+    notify_user details.author
 
     # Send notification to watchers
     for idx,w of details.watchers
-      notify_user w.login
+      notify_user w
 
     if details.action == 'opened' or content.indexOf('to `New') >= 0
       robot.emit 'channel-send', details.project_id, text, msg
@@ -117,18 +117,20 @@ module.exports = (robot) ->
       as_user: true
     }
 
-    notify_user_gerrit = (login) ->
+    notify_user_gerrit = (user) ->
+      # the hook wraps names in literal quotes: '"Name <email>"'
+      author = details.author.replace /^"|"$/g, ''
       if details.emitter
-        text = details.author.replace /<.*>/, "@#{details.emitter}"
+        text = author.replace /<.*>/, "@#{details.emitter}"
       else
-        text = details.author
+        text = author
 
-      robot.emit 'user-send', login, 'gerrit', text, msg
+      robot.emit 'user-send', user, 'gerrit', text, msg
 
     # Send notification to owner of patch
     if details.author != details.change_owner
-      notify_user_gerrit details.nickname
-    if details.reviewers?
-        for user in details.reviewers
-            if user != details.emitter && user != details.nickname
+      notify_user_gerrit { login: details.nickname, mail: details.owner_mail }
+    if details.reviewer_users?
+        for user in details.reviewer_users
+            if user.login != details.emitter && user.login != details.nickname
                 notify_user_gerrit user
