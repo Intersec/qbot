@@ -68,7 +68,7 @@ attachment_emoji = (color) ->
 
 # Slack folds long attachment texts behind a "Show more" button.
 # Matrix HTML has no equivalent, so the text is cut instead and the
-# reader is sent to the ticket for the rest.
+# reader is sent to the linked page (ticket or change) for the rest.
 MAX_TEXT_LINES = 8
 MAX_TEXT_CHARS = 600
 
@@ -116,9 +116,9 @@ format_notif = (text, msg) ->
       quote += slack_to_html(body)
       if cut
         if att.title_link?
-          plain += "\n… (see the ticket)"
+          plain += "\n… (read more)"
           quote += "<br/><a href=\"#{escape_html(att.title_link)}\">" +
-                   '&hellip; (see the ticket)</a>'
+                   '&hellip; (read more)</a>'
         else
           plain += "\n…"
           quote += '<br/>&hellip;'
