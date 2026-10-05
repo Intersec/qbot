@@ -68,7 +68,7 @@ attachment_emoji = (color) ->
 
 # Slack folds long attachment texts behind a "Show more" button.
 # Matrix HTML has no equivalent, so the text is cut instead and the
-# reader is sent to the ticket for the rest.
+# reader is sent to the linked page (ticket or change) for the rest.
 MAX_TEXT_LINES = 8
 MAX_TEXT_CHARS = 600
 
@@ -116,9 +116,9 @@ format_notif = (text, msg) ->
       quote += slack_to_html(body)
       if cut
         if att.title_link?
-          plain += "\n… (see the ticket)"
+          plain += "\n… (read more)"
           quote += "<br/><a href=\"#{escape_html(att.title_link)}\">" +
-                   '&hellip; (see the ticket)</a>'
+                   '&hellip; (read more)</a>'
         else
           plain += "\n…"
           quote += '<br/>&hellip;'
@@ -203,7 +203,12 @@ class MatrixClient
     if html?
       msg.format = 'org.matrix.custom.html'
       msg.formatted_body = html
-    @api 'PUT', "/rooms/#{encodeURIComponent(room_id)}/send/m.room.message/#{txn}", msg, null
+    path = "/rooms/#{encodeURIComponent(room_id)}/send/m.room.message"
+    @whoami =>
+      if @no_device
+        @api 'POST', path, msg, null
+      else
+        @api 'PUT', "#{path}/#{txn}", msg, null
 
   # The bot's own user id, resolved lazily and kept in memory
   whoami: (cb) ->
@@ -211,6 +216,16 @@ class MatrixClient
     @api 'GET', '/account/whoami', null, (err, data) =>
       return cb null if err
       @user_id = data.user_id
+      # Synapse answers 500 M_UNKNOWN to each send with a transaction id
+      # when the token has no device, as MAS personal tokens (mpt_) do.
+      # POST without a transaction id is a Synapse extension that skips
+      # this check. It gives no duplicate protection, and qbot never
+      # retries a send, so this is acceptable. Use a device-bound token
+      # (mas-cli manage issue-compatibility-token) to go back to PUT.
+      @no_device = not data.device_id?
+      if @no_device
+        @robot.logger.warning 'matrix: the token has no device, ' +
+                              'messages are sent without a transaction id'
       cb @user_id
 
   # Get the user id -> [room ids] map of direct rooms from the bot
