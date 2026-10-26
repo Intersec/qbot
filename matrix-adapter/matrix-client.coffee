@@ -144,6 +144,9 @@ class MatrixClient
     url = process.env.MATRIX_HOMESERVER_URL
     url = "https://#{@server_name}" if not url? or url.length == 0
     @url = url.replace /\/+$/, ''
+    # users confirmed absent from the homeserver (deactivated accounts),
+    # cached so departed people are not probed on every notification
+    @missing_users = {}
 
   enabled: ->
     @server_name? and @server_name.length > 0 and
@@ -228,6 +231,20 @@ class MatrixClient
                               'messages are sent without a transaction id'
       cb @user_id
 
+  # Whether a matrix user still exists on the homeserver. Deactivated or
+  # deleted accounts no longer have a profile row. Fails open: only a
+  # definitive "No row found" proves the account is gone; anything else
+  # (network error, foreign M_UNKNOWN, ...) is treated as "exists" so a
+  # transient hiccup never blocks a real DM.
+  user_exists: (user_id, cb) ->
+    if user_id of @missing_users
+      return cb not @missing_users[user_id]
+    @api 'GET', "/profile/#{encodeURIComponent(user_id)}", null, (err, data) =>
+      if err and data?.error? and /No row found/.test data.error
+        @missing_users[user_id] = true
+        return cb false
+      cb true
+
   # Get the user id -> [room ids] map of direct rooms from the bot
   # account's m.direct account data. Stored on the homeserver, it is
   # shared by all the bot instances, so DM rooms are never duplicated.
@@ -251,22 +268,29 @@ class MatrixClient
       return
     localpart = mail.split('@')[0].toLowerCase()
     user_id = "@#{localpart}:#{@server_name}"
-    @get_direct_rooms (direct) =>
-      # do not create a room blindly on errors, it could duplicate
-      # an existing DM room
-      return if not direct?
-      rooms = direct[user_id]
-      if rooms? and rooms.length > 0
-        return @sendToRoomId rooms[0], plain, html
-      @api 'POST', '/createRoom', {
-        is_direct: true
-        preset: 'trusted_private_chat'
-        invite: [user_id]
-      }, (err, data) =>
-        return if err
-        direct[user_id] = [data.room_id]
-        path = "/user/#{encodeURIComponent(@user_id)}/account_data/m.direct"
-        @api 'PUT', path, direct, null
-        @sendToRoomId data.room_id, plain, html
+    # do not notify people who no longer exist on the homeserver:
+    # creating a room or posting into a stale one for them just fails
+    @user_exists user_id, (exists) =>
+      if not exists
+        @robot.logger.info "matrix: #{user_id} is not on the homeserver, " +
+                           "not sending the DM"
+        return
+      @get_direct_rooms (direct) =>
+        # do not create a room blindly on errors, it could duplicate
+        # an existing DM room
+        return if not direct?
+        rooms = direct[user_id]
+        if rooms? and rooms.length > 0
+          return @sendToRoomId rooms[0], plain, html
+        @api 'POST', '/createRoom', {
+          is_direct: true
+          preset: 'trusted_private_chat'
+          invite: [user_id]
+        }, (err, data) =>
+          return if err
+          direct[user_id] = [data.room_id]
+          path = "/user/#{encodeURIComponent(@user_id)}/account_data/m.direct"
+          @api 'PUT', path, direct, null
+          @sendToRoomId data.room_id, plain, html
 
 module.exports = { MatrixClient, format_notif, is_matrix_room }
