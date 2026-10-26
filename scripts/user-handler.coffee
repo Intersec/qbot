@@ -106,6 +106,8 @@ get_project_channels = (robot, project) ->
 module.exports = (robot) ->
 
   matrix_client = new matrix.MatrixClient(robot)
+  # check the token at launch, not on the first notification
+  matrix_client.whoami(->) if matrix_client.enabled()
   matrix_dev_room = process.env.QBOT_MATRIX_DEV_ROOM
 
   # Handle notifications.
